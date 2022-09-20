@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "actions": {
+            "value": [
+                "Microsoft.Compute/*/read",
+                "Microsoft.Compute/virtualMachines/start/action",
+                "Microsoft.Compute/virtualMachines/restart/action",
+                "Microsoft.Compute/virtualMachines/deallocate/action",
+                "Microsoft.Network/publicIPAddresses/read",
+                "Microsoft.Network/networkInterfaces/read"
+            ]
+        },
+        "roleName": {
+            "value": "VM_Basic_Actions"
+        },
+        "roleDescription": {
+            "value": "A custom role to let user start, restart and deallocate the VM. User can also see (read) the public IP and network interface of the VM."
+        }
+    }
+}
