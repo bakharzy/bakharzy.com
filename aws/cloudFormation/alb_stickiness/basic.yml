@@ -1,0 +1,286 @@
+AWSTemplateFormatVersion: 2010-09-09
+Resources:
+  CustomVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 172.16.0.0/16
+      EnableDnsHostnames: true
+  IG:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties: {}
+  IGAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref IG
+      VpcId: !Ref CustomVPC
+  RouteTablePub:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref CustomVPC
+  RTDefaultPub:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IG
+      RouteTableId: !Ref RouteTablePub
+  RouteTablePrv:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref CustomVPC
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+        Domain: vpc
+  SNPublic1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      CidrBlock: 172.16.0.0/25
+      VpcId: !Ref CustomVPC
+      AvailabilityZone: eu-north-1a
+      MapPublicIpOnLaunch: true
+  SNPub1Assc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref RouteTablePub
+      SubnetId: !Ref SNPublic1
+  SNPublic2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      CidrBlock: 172.16.0.128/25
+      VpcId: !Ref CustomVPC
+      AvailabilityZone: eu-north-1b
+      MapPublicIpOnLaunch: true
+  SNPub2Assc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref RouteTablePub
+      SubnetId: !Ref SNPublic2
+  SNPrivate2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      CidrBlock: 172.16.1.128/25
+      VpcId: !Ref CustomVPC
+      AvailabilityZone: eu-north-1b
+  SNPrivate1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      CidrBlock: 172.16.1.0/25
+      VpcId: !Ref CustomVPC
+      AvailabilityZone: eu-north-1a
+  SNPrv1Assc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref RouteTablePrv
+      SubnetId: !Ref SNPrivate1
+  SNPrv2Assc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref RouteTablePrv
+      SubnetId: !Ref SNPrivate2
+  NAT:
+   Type: AWS::EC2::NatGateway
+   Properties:
+      AllocationId:
+         Fn::GetAtt:
+         - EIP
+         - AllocationId
+      SubnetId:
+         Ref: SNPublic1
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+        RouteTableId:
+          Ref: RouteTablePrv
+        DestinationCidrBlock: 0.0.0.0/0
+        NatGatewayId:
+          Ref: NAT
+  TG1:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Name: TG1
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      Targets:
+        - Id: !Ref Instance1
+        - Id: !Ref Instance2
+      VpcId: !Ref CustomVPC
+  ALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      SecurityGroups:
+        - !Ref ALBSG
+      IpAddressType: ipv4
+      Name: ALB
+      Scheme: internet-facing
+      Subnets:
+        - !Ref SNPublic1
+        - !Ref SNPublic2
+      Type: application
+  Listener1:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - TargetGroupArn: !Ref TG1
+          Type: forward
+  WSSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: WebServerSG1
+      GroupDescription: SG to limit access to instances
+      VpcId: !Ref CustomVPC
+      SecurityGroupEgress:
+        FromPort: 1
+        ToPort: 65535
+        IpProtocol: tcp
+        CidrIp: 0.0.0.0/0
+  WebServerSG1Ingress1:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref ALBSG
+      GroupId: !Ref WSSG
+  WebServerSG1Ingress2:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:        
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
+      CidrIp: 72.21.198.66/32
+      GroupId: !Ref WSSG
+  WebServerSG1Ingress3:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:        
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+      CidrIp: 72.21.198.66/32
+      GroupId: !Ref WSSG
+  ALBSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: ALBSG1
+      GroupDescription: SG to limit access to instances
+      VpcId: !Ref CustomVPC
+  ALBSGEgress:
+    Type: 'AWS::EC2::SecurityGroupEgress'
+    Properties:
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+      GroupId: !Ref ALBSG
+      DestinationSecurityGroupId: !Ref WSSG
+  ALBSGIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+      GroupId: !Ref ALBSG
+      CidrIp: 0.0.0.0/0
+  Instance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      SubnetId: !Ref SNPrivate1
+      InstanceType: t3.micro
+      ImageId: ami-0a79730daaf45078a
+      SecurityGroupIds:
+        - !Ref WSSG
+      KeyName: Test1
+      UserData: 
+        Fn::Base64: 
+          Fn::Join:
+            - ''
+            - - |
+                #!/bin/bash -xe
+              - |
+                yum install -y aws-cfn-bootstrap
+              - |
+              - '/opt/aws/bin/cfn-init -v --stack '
+              - !Ref 'AWS::StackName'
+              - ' --resource Instance1'
+              - ' --configsets Install'
+              - ' --region '
+              - !Ref 'AWS::Region'
+              - |+
+              
+              - |
+                echo 'Header add Set-Cookie "TESTCOOKIE=Instance1CookieExampleValue"' >> /etc/httpd/conf/httpd.conf
+              - | 
+                service httpd restart
+    Metadata:
+      AWS::CloudFormation::Init: 
+        configSets:
+          Install:
+            - "config1"
+        config1:
+            packages:
+              yum:
+                httpd: []
+                mod_session: []
+            files:
+              /var/www/html/index.html: 
+                content: "<html><body><h1 style=\"position:absolute;top:50%;right:40%;left:40%;\">Instance 1 - TG1</h1></body></html>"
+                mode: '000775'
+                owner: apache
+                group: apache
+            services:
+              sysvinit:
+                httpd:
+                  enabled: 'true'
+                  ensureRunning: 'true'
+  Instance2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      SubnetId: !Ref SNPrivate2
+      InstanceType: t3.micro
+      ImageId: ami-0a79730daaf45078a
+      SecurityGroupIds:
+        - !Ref WSSG
+      KeyName: Test1
+      UserData: 
+        Fn::Base64: 
+          Fn::Join:
+            - ''
+            - - |
+                #!/bin/bash -xe
+              - |
+                yum install -y aws-cfn-bootstrap
+              - |
+              - '/opt/aws/bin/cfn-init -v --stack '
+              - !Ref 'AWS::StackName'
+              - ' --resource Instance2'
+              - ' --configsets Install'
+              - ' --region '
+              - !Ref 'AWS::Region'
+              - |+
+
+              - |
+                echo 'Header add Set-Cookie "TESTCOOKIE=Instance2CookieExampleValue"' >> /etc/httpd/conf/httpd.conf
+              - | 
+                service httpd restart
+    Metadata:
+      AWS::CloudFormation::Init: 
+        configSets:
+          Install:
+            - "config1"
+        config1:
+            packages:
+              yum:
+                httpd: []
+            files:
+              /var/www/html/index.html: 
+                content: "<html><body><h1 style=\"position:absolute;top:50%;right:40%;left:40%;\">Instance 2 - TG1</h1></body></html>"
+                mode: '000775'
+                owner: apache
+                group: apache
+            services:
+              sysvinit:
+                httpd:
+                  enabled: 'true'
+                  ensureRunning: 'true'
