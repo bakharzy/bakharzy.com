@@ -14,6 +14,8 @@ param operatingSystem string
   'win11'
   'ubuntu2004'
   'ubuntu2004gen2'
+  'ubuntu2204'
+  'ubuntu2204gen2'
 ])
 param operatingSystemSKU string
 
@@ -27,8 +29,9 @@ param adminUsername string
 ])
 param authenticationType string
 
-@description('Admin password or SSH key:')
+@description('Admin password or SSH key. Password must have 3 of the following: 1 lower case character, 1 upper case character, 1 number, and 1 special character. Passwords can be between 12 and 72 characters long')
 @secure()
+@minLength(12)
 param adminPasswordOrPublicKey string
 
 @description('Size of the virtual machine')
@@ -127,6 +130,18 @@ var osImageReference = {
     sku: '20_04-lts-gen2'
     version: 'latest'
   }
+  ubuntu2204: {
+    publisher: 'canonical'
+    offer: '0001-com-ubuntu-server-jammy'
+    sku: '22_04-lts'
+    version: 'latest'
+  }
+  ubuntu2204gen2: {
+    publisher: 'canonical'
+    offer: '0001-com-ubuntu-server-jammy'
+    sku: '22_04-lts-gen2'
+    version: 'latest'
+  }
 }
 
 var linuxConfiguration = {
@@ -149,7 +164,7 @@ var aadLoginExtensionName = (operatingSystem == 'Linux') ? 'AADSSHLoginForLinux'
 
 // -- Resource definitions -- 
 
-resource networkInterfaceName_resource 'Microsoft.Network/networkInterfaces@2022-01-01' = {
+resource networkInterfaceName_resource 'Microsoft.Network/networkInterfaces@2023-06-01' = {
   name: networkInterfaceName
   location: location
   properties: {
@@ -182,7 +197,7 @@ resource networkInterfaceName_resource 'Microsoft.Network/networkInterfaces@2022
   ]
 }
 
-resource networkSecurityGroupName_resource 'Microsoft.Network/networkSecurityGroups@2019-02-01' = {
+resource networkSecurityGroupName_resource 'Microsoft.Network/networkSecurityGroups@2023-06-01' = {
   name: networkSecurityGroupName
   location: location
   properties: {
@@ -190,7 +205,7 @@ resource networkSecurityGroupName_resource 'Microsoft.Network/networkSecurityGro
   }
 }
 
-resource virtualNetworkName_resource 'Microsoft.Network/virtualNetworks@2020-11-01' = {
+resource virtualNetworkName_resource 'Microsoft.Network/virtualNetworks@2023-06-01' = {
   name: virtualNetworkName
   location: location
   properties: {
@@ -201,7 +216,7 @@ resource virtualNetworkName_resource 'Microsoft.Network/virtualNetworks@2020-11-
   }
 }
 
-resource publicIpAddressName_resource 'Microsoft.Network/publicIpAddresses@2020-08-01' = {
+resource publicIpAddressName_resource 'Microsoft.Network/publicIPAddresses@2023-06-01' = {
   name: publicIpAddressName
   location: location
   properties: {
@@ -212,7 +227,7 @@ resource publicIpAddressName_resource 'Microsoft.Network/publicIpAddresses@2020-
   }
 }
 
-resource virtualMachineName_resource 'Microsoft.Compute/virtualMachines@2022-03-01' = {
+resource virtualMachineName_resource 'Microsoft.Compute/virtualMachines@2023-09-01' = {
   name: virtualMachineName
   location: location
   properties: {
@@ -261,7 +276,7 @@ resource virtualMachineName_resource 'Microsoft.Compute/virtualMachines@2022-03-
   }
 }
 
-resource virtualMachineName_aadLoginExtensionName 'Microsoft.Compute/virtualMachines/extensions@2018-10-01' = {
+resource virtualMachineName_aadLoginExtensionName 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = {
   parent: virtualMachineName_resource
   name: aadLoginExtensionName
   location: location
