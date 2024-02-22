@@ -21,7 +21,7 @@ select opt in "${options[@]}"
 do
     case $opt in
         "management group")
-            read -p "Enter the Management Group name for role assignment scope: " managementGroup
+            read -p "${NC}Enter the Management Group name for role assignment scope: " managementGroup
             managementGroup=${managementGroup}
             echo
             echo "${GREEN}Creating SP for RBAC with name ${BLUE}$servicePrincipalName${GREEN}, with role ${BLUE}$roleName${GREEN} and in scopes ${BLUE}/providers/Microsoft.Management/managementGroups/$managementGroup${NC}"
